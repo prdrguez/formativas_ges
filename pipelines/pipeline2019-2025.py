@@ -10,36 +10,36 @@ from scraper.main import FebambaScraper
 
 # Lista de torneos a scrapear
 torneos_a_scrapear = [
-    {
-        "id": 16,
-        "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=16",
-        "Anio": 2019,
-        "torneo": "Torneo Formativas 2019",
-    },
-    {
-        "id": 307,
-        "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=307",
-        "Anio": 2022,
-        "torneo": "TORNEO FORMATIVAS 2022",
-    },
-    {
-        "id": 682,
-        "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=682",
-        "Anio": 2023,
-        "torneo": "FORMATIVAS 2023",
-    },
-    {
-        "id": 1178,
-        "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=1178",
-        "Anio": 2024,
-        "torneo": "FORMATIVAS 2024",
-    },
-    {
-        "id": 1623,
-        "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=1623",
-        "Anio": 2025,
-        "torneo": "FORMATIVAS 2025",
-    },
+    #{
+    #    "id": 16,
+    #    "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=16",
+    #    "Anio": 2019,
+    #    "torneo": "Torneo Formativas 2019",
+    #},
+    #{
+    #    "id": 307,
+    #    "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=307",
+    #    "Anio": 2022,
+    #    "torneo": "TORNEO FORMATIVAS 2022",
+    #},
+    #{
+    #    "id": 682,
+    #    "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=682",
+    #    "Anio": 2023,
+    #    "torneo": "FORMATIVAS 2023",
+    #},
+    #{
+    #    "id": 1178,
+    #    "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=1178",
+    #    "Anio": 2024,
+    #    "torneo": "FORMATIVAS 2024",
+    #},
+    #{
+    #    "id": 1623,
+    #    "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=1623",
+    #    "Anio": 2025,
+    #    "torneo": "FORMATIVAS 2025",
+    #},
 ]
 
 

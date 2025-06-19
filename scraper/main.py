@@ -110,7 +110,7 @@ class FebambaScraper:
 
             fase_info = parsear_fase(year, fase_text)
             partidos_fase = self._scrap_grupos_fase(
-                year, cat_mapa, url_fases, fase_info, fase_id
+                year, cat_mapa, url_fases, fase_info, fase_id, fase_text
             )
             partidos_categoria.extend(partidos_fase)
 
@@ -119,7 +119,7 @@ class FebambaScraper:
         return partidos_categoria
 
     def _scrap_grupos_fase(
-        self, year, cat_mapa, url_fase, fase_info, fase_id
+        self, year, cat_mapa, url_fase, fase_info, fase_id, fase_text
     ) -> List[Dict]:
         """Scrapea todos los grupos de una fase."""
         url_grupos = f"{url_fase}&fase={fase_id}"
@@ -146,7 +146,7 @@ class FebambaScraper:
                 if not grupo_id or grupo_id == "0" or "Seleccionar" in grupo_text:
                     continue
 
-                grupo_info = parsear_grupo(year, fase_info.get("fase", ""), grupo_text)
+                grupo_info = parsear_grupo(year, fase_text, grupo_text)
                 url_grupo = f"{url_grupos}&grupo={grupo_id}"
 
                 partidos_grupo = self._scrap_partidos_grupo(
@@ -204,7 +204,11 @@ class FebambaScraper:
                 ronda_inferida = inferir_ronda(
                     year,
                     cat_mapa,
-                    fase_info.get("nivel", ""),
+                    (
+                        fase_info.get("nivel", "Desconocido")
+                        if fase_info.get("nivel") != "Desconocido"
+                        else grupo_info.get("nivel", "Desconocido")
+                    ),
                     fase_info.get("zona", ""),
                     jornada,
                     fase_info.get("fase", ""),
@@ -213,31 +217,55 @@ class FebambaScraper:
                     self.equipos_map,
                 )
 
+                # Adaptar para usar el dict completo retornado por inferir_ronda
+                ronda_val = None
+                llave_val = None
+                nivel_val = None
+                if isinstance(ronda_inferida, dict):
+                    ronda_val = ronda_inferida.get("ronda") if ronda == '' else ronda
+                    llave_val = ronda_inferida.get("llave")
+                    nivel_val = ronda_inferida.get("nivel")
+                else:
+                    ronda_val = ronda_inferida if ronda == '' else ronda
+                    llave_val = None
+                    nivel_val = None
+
+                fase_actual = fase_info.get("fase", "").upper()
+
                 partido = {
                     "anio": year,
                     "categoria": cat_mapa,
                     "fase": fase_info.get("fase"),
                     "ronda": (
-                        ronda_inferida
-                        if ronda_inferida is not None
-                        and ronda_inferida != "Desconocido"
+                        fase_info["ronda"]
+                        if fase_info.get("ronda") != "Desconocida"
                         else (
-                            fase_info["ronda"]
-                            if fase_info.get("ronda") != "Desconocido"
+                            ronda_val
+                            if ronda_val is not None and ronda_val != "Desconocida"
                             else ronda
                         )
                     ),
                     "nivel": (
-                        fase_info["nivel"]
-                        if fase_info["nivel"] != "Desconocido"
-                        else grupo_info.get("nivel", "Desconocido")
+                        nivel_val
+                        if nivel_val is not None and nivel_val != "Desconocido"
+                        else (
+                            fase_info["nivel"]
+                            if fase_info["nivel"] != "Desconocido"
+                            else grupo_info.get("nivel", "Desconocido")
+                        )
                     ),
                     "zona": (
                         fase_info["zona"]
-                        if fase_info["zona"] != "Desconocido"
-                        else grupo_info.get("zona", "Desconocido")
+                        if fase_info["zona"] != "Desconocida"
+                        else grupo_info.get("zona", "Desconocida")
                     ),
-                    "grupo": grupo_info.get("grupo", "Desconocido"),
+                    "grupo": (
+                        llave_val if fase_actual in ["PLAYOFF", "FINAL FOUR"] and llave_val
+                        else (
+                            fase_info["grupo"] if fase_info.get("grupo") not in [None, "Desconocido"]
+                            else grupo_info.get("grupo", "Desconocido")
+                        )
+                    ),
                     "jornada": jornada,
                     "fecha": fecha,
                     "local": normalizar_equipo(local_raw, self.equipos_map),
@@ -246,6 +274,9 @@ class FebambaScraper:
                     "ptsV": pts_visitante_raw,
                 }
 
-                partidos.append(partido)
+                if partido["fase"]== "Playoff" and (partido["categoria"] == "MINI" or partido["categoria"] == "PREMINI"):
+                    continue
+                else:
+                    partidos.append(partido)
 
         return partidos

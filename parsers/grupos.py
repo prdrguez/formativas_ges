@@ -6,7 +6,6 @@ Cada año tiene estructuras distintas, con reglas específicas de parseo.
 
 import re
 from typing import Dict
-from mapeos.loader import normalizar_equipo
 
 
 def parsear_grupo(year: int, fase_text: str, grupo_text: str) -> Dict[str, str]:
@@ -52,54 +51,66 @@ def parsear_grupo(year: int, fase_text: str, grupo_text: str) -> Dict[str, str]:
 
 
 def _parsear_grupo_2019(fase: str, grupo: str) -> Dict[str, str]:
-    nivel, zona, grupo_final = "Desconocido", "Desconocido", "Desconocido"
+    nivel, zona, grupo_final = "Desconocido", "Desconocida", "Desconocido"
 
     if "1RA FASE" in fase:
-        match = re.search(r"CONFERENCIA\s+([A-Z]+?)\s*(\d)\s*([A-Z])", grupo)
+        # Caso: CONFERENCIA NORTE 1 A
+        match = re.search(r"CONFERENCIA\s+([A-Z]+)\s+(\d)\s*([A-Z])", grupo)
+        if not match:
+            # Caso: CONFERENCIA NORTE1A o CONFERENCIA NORTE1 B (sin espacio entre número y letra)
+            match = re.search(r"CONFERENCIA\s+([A-Z]+)(\d)\s*([A-Z])", grupo)
         if match:
-            zona, nivel, grupo_final = match.group(1), match.group(2), match.group(3)
+            zona_extraida, nivel, grupo_final = match.group(1), match.group(2), match.group(3)
+            if zona == "Desconocida":
+                zona = zona_extraida
     elif "CONFERENCIA" in fase and "2DA FASE" in fase:
-        match = (
-            re.search(r"ZONA\s+([A-Z]+)\s+([A-Z])\s+(\d)", grupo)  # ZONA SUR A 3
-            or re.search(r"ZONA\s+([A-Z])\s+([A-Z]+)\s+(\d)", grupo)  # ZONA A SUR 3
-            or re.search(r"ZONA\s+([A-Z]+)\s+(\d)", grupo)  # ZONA SUR 3
-            or re.search(r"ZONA\s+(\d)\s+([A-Z]+)", grupo)  # ZONA 3 SUR
-        )
-
+        # Caso: ZONA [GRUPO] [ZONA] [NIVEL]
+        match = re.match(r"ZONA\s+([A-Z])\s+([A-Z]+)\s+(\d)", grupo)
         if match:
-            g1, g2, *rest = match.groups()
-
-            if len(rest) == 1:
-                g3 = rest[0]
-                # Casos ZONA SUR 3 o ZONA 3 SUR
-                if g1.isdigit():  # ZONA 3 SUR
-                    nivel = g1
-                    zona = g2
-                elif g3.isdigit():  # ZONA SUR 3
-                    nivel = g3
-                    zona = g1
+            grupo_final = match.group(1)
+            zona = match.group(2)
+            nivel = match.group(3)
+        else:
+            # Si el grupo es una sola letra y la zona es más de una letra, invertir
+            match = re.match(r"ZONA\s+([A-Z]+)\s+([A-Z])\s+(\d)", grupo)
+            if match:
+                zona = match.group(1)
+                grupo_final = match.group(2)
+                nivel = match.group(3)
+            else:
+                # ZONA SUR A 2 -> zona=SUR, grupo_final=A, nivel=2
+                match = re.match(r"ZONA\s+([A-Z]+)\s+([A-Z])\s+(\d)", grupo)
+                if match:
+                    zona = match.group(1)
+                    grupo_final = match.group(2)
+                    nivel = match.group(3)
                 else:
-                    zona = nivel = grupo_final = "Desconocido"
-                grupo_final = "Desconocido"
-
-            elif len(rest) == 2:
-                g3 = rest[0]
-                # Casos ZONA SUR A 3 o ZONA A SUR 3
-                if g1.isalpha() and len(g1) > 1:  # Ej: SUR
-                    zona = g1
-                    grupo_final = g2
-                else:
-                    grupo_final = g1
-                    zona = g2
-                nivel = g3
-
+                    # ZONA SUR 3 -> zona=SUR, grupo_final=UNICO, nivel=3
+                    match = re.match(r"ZONA\s+([A-Z]+)\s+(\d)", grupo)
+                    if match:
+                        zona = match.group(1)
+                        grupo_final = "UNICO"
+                        nivel = match.group(2)
+                    else:
+                        match = (
+                            re.search(r"ZONA\s+(\d)\s+([A-Z]+)", grupo)  # ZONA 3 SUR
+                        )
+                        if match:
+                            zona = match.group(2)
+                            grupo_final = "UNICO"
+                            nivel = match.group(1)
+    elif "CONFERENCIA" in fase and "FINAL" in fase:
+        # caso: ZONA A
+        match = re.search(r"ZONA\s+([A-Z])", grupo)
+        if match:
+            grupo_final = match.group(1)
     elif "INTERCONFERENCIA" in fase:
         match = re.search(r"ZONA\s+([A-Z])", grupo)
         if match:
             nivel = "INTERCONFERENCIA"
             zona = "INTERCONFERENCIA"
             grupo_final = match.group(1)
-
+            
     return {"nivel": nivel, "zona": zona, "grupo": grupo_final}
 
 
@@ -114,7 +125,7 @@ def _parsear_grupo_2022(fase: str, grupo: str) -> Dict[str, str]:
     elif "NIVEL" in fase:
         if "SUR UNICA" == grupo or "ZONA UNICA" == grupo:
             zona = "SUR"
-            grupo_final = "UNICA"
+            grupo_final = "UNICO"
         else:
             match = re.search(r"(\w+)\s*ZONA\s+([A-Z]+)", grupo)
             if match:
@@ -135,21 +146,21 @@ def _parsear_grupo_2022(fase: str, grupo: str) -> Dict[str, str]:
                 zona = match.group(1)
                 nivel = match.group(2)
     elif "FINAL FOUR" in fase:
-        grupo_final = grupo
+        zona = "INTERCONFERENCIA"
 
     return {"nivel": nivel, "zona": zona, "grupo": grupo_final}
 
 
 def _parsear_grupo_2023(fase: str, grupo: str) -> Dict[str, str]:
     nivel, zona, grupo_final = "Desconocido", "Desconocido", "Desconocido"
-
+    
     if "FASE REGULAR" in fase:
         match = re.search(r"(\w+)\s*(\d)?[”\"]?([A-Z])?[”\"]?", grupo)
         if match:
             zona = match.group(1)
             nivel = match.group(2) if match.group(2) else "Desconocido"
             grupo_final = match.group(3) if match.group(3) else "UNICO"
-    elif "CONFERENCIA" in fase:
+    if "CONFERENCIA" in fase:
         # Correcciones específicas
         grupo = grupo.replace("0ESTE", "OESTE")
 
@@ -198,11 +209,9 @@ def _parsear_grupo_2023(fase: str, grupo: str) -> Dict[str, str]:
             if match:
                 zona, nivel = match.groups()
                 grupo_final = "UNICO"
-    elif "INTERCONFERENCIAS" in fase:
+    if "INTERCONFERENCIAS" == fase:
         match = re.search(r"ZONA\s+([A-Z])", grupo)
         if match:
-            nivel = "INTERCONFERENCIA"
-            zona = "INTERCONFERENCIA"
             grupo_final = match.group(1)
 
     return {"nivel": nivel, "zona": zona, "grupo": grupo_final}
@@ -329,20 +338,3 @@ def _parsear_grupo_2025(fase: str, grupo: str) -> Dict[str, str]:
             grupo_final = match.group(2)
 
     return {"nivel": nivel, "zona": zona, "grupo": grupo_final}
-
-
-
-def construir_nombre_llave(local: str, visitante: str) -> str:
-    """
-    Construye el nombre de un grupo tipo llave eliminatoria (Playoffs o Final Four).
-
-    Args:
-        local (str): Nombre crudo del equipo local.
-        visitante (str): Nombre crudo del equipo visitante.
-
-    Returns:
-        str: Nombre normalizado del grupo en formato '{Local}-{Visitante}'.
-    """
-    local_norm = normalizar_equipo(local)
-    visitante_norm = normalizar_equipo(visitante)
-    return f"{local_norm}-{visitante_norm}"
