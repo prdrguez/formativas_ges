@@ -65,12 +65,15 @@ def peso_por_anio(anio):
     pesos = {2019: 0.25, 2022: 0.5, 2023: 0.75, 2024: 1}
     return pesos.get(int(anio), 1)
 
-def peso_por_fase(fase):
+def peso_por_fase(fase, nivel):
     fase = str(fase).upper()
     if "FINAL FOUR" in fase:
         return 1
     elif "PLAYOFF" in fase:
-        return 0.75
+        if nivel in ["INTERCONFERENCIA", "INTERCONFERENCIA A", "INTERCONFERENCIA B"]:
+            return 1
+        else:
+            return 0.75
     elif "FASE REGULAR" in fase:
         return 0.65
     return 1
@@ -105,11 +108,11 @@ def peso_por_nivel(nivel):
         return 2
     if "INTERCONFERENCIA B" in nivel:
         return 1.5
-    if nivel == "1" or nivel == "NIVEL 1":
+    if nivel == "1":
         return 1.25
-    if nivel == "2" or nivel == "NIVEL 2":
+    if nivel == "2":
         return 1
-    if nivel == "3" or nivel == "NIVEL 3":
+    if nivel == "3":
         return 1
     return 1
 
