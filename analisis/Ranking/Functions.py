@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import pandas as pd
-from utils.open_csv import leer_csv_con_encoding_detectado
+from utils.open_csv import leer_csv_con_encoding_detectado , leer_csv_con_encoding_detectado_Comas
 
 #Lee y devuelve una lista de equipos.
 def crear_ranking_base(data):
@@ -116,6 +116,35 @@ def peso_por_nivel(nivel):
         return 1
     return 1
 
+def Calculo_ORP(Ranking,local,visitante):
+    avg=0
+    for i in range(len(Ranking)):
+        sum=sum+i
+    avg=sum/(len(Ranking))
+    
+def Calculo_ORP(Ranking,local,visitante):
+    sum=0
+    i=1
+    for i in range(len(Ranking)):
+        sum=sum+i
+    avg=sum/(len(Ranking))
+
+    for i,row in Ranking.iterrows():
+        if local==row["Equipo"]:
+            LocalPos=i+1
+        else:
+            LocalPos=avg
+        if visitante==row["Equipo"]:
+            VisPos=i+1
+        else:
+            VisPos=avg
+        
+    
+    ORPloc=1.5*(avg-VisPos)
+    ORPvis=1.5*(avg-LocalPos)
+
+    return (ORPloc , ORPvis)
+
 data=leer_csv_con_encoding_detectado("Data/procesada/19-24.csv")    
 
 #for year in sorted(data["anio"].unique()):
@@ -126,24 +155,71 @@ data=leer_csv_con_encoding_detectado("Data/procesada/19-24.csv")
 #        data_year.at[idx, "BP_VISITA"] = BP_VISITA
 #    data_year.to_csv(f"Data/procesada/{str(year)}.csv", index=False)
 
+
+#2019
 # Filtrar las categorías MINI y PREMINI
-data = data[~data["categoria"].str.upper().isin(["MINI", "PREMINI"])]
-
-data_2019 = data[data["anio"] == 2019].copy()
-for idx, row in data_2019.iterrows():
-    BP_LOCAL, BP_VISITA = asignar_basis_points(row)
-    data_2019.at[idx, "BP_LOCAL"] = BP_LOCAL
-    data_2019.at[idx, "BP_VISITA"] = BP_VISITA
-    data_2019["peso_nivel"] = data_2019["nivel"].apply(peso_por_nivel)
-    data_2019["peso_anio"] = data_2019["anio"].apply(peso_por_anio)
-    data_2019["peso_ronda"] = data_2019.apply(lambda row: peso_por_ronda(row["ronda"], row["anio"]), axis=1)
-    data_2019["peso_fase"] = data_2019["fase"].apply(peso_por_fase)
-
-data_2019 = data_2019[["local", "visitante", "BP_LOCAL", "BP_VISITA", "peso_anio", "peso_nivel", "peso_fase", "peso_ronda"]].copy()
-data_2019.to_csv("Data/procesada/2019.csv", index=False)
-#data_2019_local = data_2019.groupby("local").agg({"BP_LOCAL": "sum"}).reset_index()
-#data_2019_visitante = data_2019.groupby("visitante").agg({"BP_VISITA": "sum"}).reset_index()
+#data = data[~data["categoria"].str.upper().isin(["MINI", "PREMINI"])]
+#
+#data_2019 = data[data["anio"] == 2019].copy()
+#for idx, row in data_2019.iterrows():
+#    BP_LOCAL, BP_VISITA = asignar_basis_points(row)
+#    data_2019.at[idx, "BP_LOCAL"] = BP_LOCAL
+#    data_2019.at[idx, "BP_VISITA"] = BP_VISITA
+#    data_2019["peso_nivel"] = data_2019["nivel"].apply(peso_por_nivel)
+#    data_2019["peso_anio"] = data_2019["anio"].apply(peso_por_anio)
+#    data_2019["peso_ronda"] = data_2019.apply(lambda row: peso_por_ronda(row["ronda"], row["anio"]), axis=1)
+#    #data_2019["peso_fase"] = data_2019.apply(lambda row: peso_por_fase(row["fase"], row["nivel"]), axis=1)
+#    data_2019["peso_fase"] = (peso_por_fase(data_2019["fase"],data_2019["nivel"]))
+#    data_2019["LocalSuma"] = data_2019["peso_fase"]*data_2019["peso_ronda"]*data_2019["peso_anio"]*data_2019["peso_nivel"]*data_2019["BP_LOCAL"]
+#    data_2019["VisitaSuma"] = data_2019["peso_fase"]*data_2019["peso_ronda"]*data_2019["peso_anio"]*data_2019["peso_nivel"]*data_2019["BP_VISITA"]
+#
+#
+#data_2019 = data_2019[["local", "visitante", "BP_LOCAL", "BP_VISITA", "peso_anio", "peso_nivel", "peso_fase", "peso_ronda","LocalSuma","VisitaSuma"]].copy()
+#data_2019.to_csv("Data/procesada/2019.csv", index=False)
+#data_2019_local = data_2019.groupby("local").agg({"LocalSuma": "sum"}).reset_index()
+#data_2019_visitante = data_2019.groupby("visitante").agg({"VisitaSuma": "sum"}).reset_index()
 #data_2019_local.columns = ["Equipo", "Puntos"]
 #data_2019_visitante.columns = ["Equipo", "Puntos"]
 #ranking_2019 = pd.concat([data_2019_local, data_2019_visitante]).groupby("Equipo", as_index=False).agg({"Puntos": "sum"})
 #ranking_2019 = ranking_2019.sort_values(by="Puntos", ascending=False).reset_index(drop=True)
+#
+#print(ranking_2019)
+#ranking_2019.to_csv("Data/procesada/Ranking2019.csv", index=False)
+
+
+
+#2022
+ano=2022
+data = data[~data["categoria"].str.upper().isin(["MINI", "PREMINI"])]
+#import ranking previo
+PrevRanking=leer_csv_con_encoding_detectado_Comas("Data/procesada/Ranking2019.csv")
+
+data_2022 = data[data["anio"] == 2022].copy()
+for idx, row in data_2022.iterrows():
+    BP_LOCAL, BP_VISITA = asignar_basis_points(row)
+    data_2022.at[idx, "BP_LOCAL"] = BP_LOCAL
+    data_2022.at[idx, "BP_VISITA"] = BP_VISITA
+    ORP_LOCAL , ORP_VIST=Calculo_ORP(PrevRanking,row["local"],row["visitante"])
+    data_2022.at[idx, "ORP_LOCAL"] = ORP_LOCAL
+    data_2022.at[idx, "ORP_VISITA"] = ORP_VIST
+    data_2022["peso_nivel"] = data_2022["nivel"].apply(peso_por_nivel)
+    data_2022["peso_anio"] = data_2022["anio"].apply(peso_por_anio)
+    data_2022["peso_ronda"] = data_2022.apply(lambda row: peso_por_ronda(row["ronda"], row["anio"]), axis=1)
+    #data_2019["peso_fase"] = data_2019.apply(lambda row: peso_por_fase(row["fase"], row["nivel"]), axis=1)
+
+    data_2022["peso_fase"] = (peso_por_fase(data_2022["fase"],data_2022["nivel"]))
+    data_2022["LocalSuma"] = data_2022["peso_fase"]*data_2022["peso_ronda"]*data_2022["peso_anio"]*data_2022["peso_nivel"]*(data_2022["BP_LOCAL"]+data_2022["ORP_LOCAL"])
+    data_2022["VisitaSuma"] = data_2022["peso_fase"]*data_2022["peso_ronda"]*data_2022["peso_anio"]*data_2022["peso_nivel"]*(data_2022["BP_VISITA"]+data_2022["ORP_VISITA"])
+
+
+data_2022 = data_2022[["local", "visitante", "BP_LOCAL", "BP_VISITA","ORP_LOCAL", "ORP_VISITA", "peso_anio", "peso_nivel", "peso_fase", "peso_ronda","LocalSuma","VisitaSuma"]].copy()
+data_2022.to_csv("Data/procesada/2022.csv", index=False)
+data_2022_local = data_2022.groupby("local").agg({"LocalSuma": "sum"}).reset_index()
+data_2022_visitante = data_2022.groupby("visitante").agg({"VisitaSuma": "sum"}).reset_index()
+data_2022_local.columns = ["Equipo", "Puntos"]
+data_2022_visitante.columns = ["Equipo", "Puntos"]
+ranking_2022 = pd.concat([data_2022_local, data_2022_visitante]).groupby("Equipo", as_index=False).agg({"Puntos": "sum"})
+ranking_2022 = ranking_2022.sort_values(by="Puntos", ascending=False).reset_index(drop=True)
+
+print(ranking_2022)
+ranking_2022.to_csv("Data/procesada/Ranking2022.csv", index=False)
