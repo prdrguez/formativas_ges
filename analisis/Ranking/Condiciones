@@ -2,11 +2,29 @@ Puntos por partido
 
 https://assets.fiba.basketball/image/upload/documents-events-world-fiba-ranking-men-how-it-works.pdf
 
-Condiciones estimadas
-Se considera cancha neutral unicamente finales.
+PESO POR AÑO:
+2019: 0.25
+2022: 0.5
+2023: 0.75
+2024: 1
 
-Fases ponderacions
+PESO POR FASE:
+FASE REGULAR -> 0.65
+PLAYOFF -> 0.75
+FINAL FOUR -> 1
 
-Fase regular = 0.5
-playoffs = 0.75
-final four = 1.25 (multiregional)
+PESO POR RONDA:
+1RA FASE -> NIVELACION -> 1
+2DA FASE -> INTERMEDIA ENTRE NIVELACION (2024) -> 1 / CAMPEONATO -> 2
+3RA FASE -> ESTIMULO (2019,2023) -> 1 / CAMPEONATO -> 2
+OCTAVOS DE FINAL -> 3
+CUARTOS DE FINAL -> 4
+SEMIFINAL -> 6
+FINAL -> 6
+
+PESO POR NIVEL:
+INTERCONFERENCIA A / INTERCONFERENCIA -> 2
+INTERCONFERENCIA B -> 1.5
+NIVEL 1 -> 1.25
+NIVEL 2 -> 1
+NIVEL 3 -> 1
