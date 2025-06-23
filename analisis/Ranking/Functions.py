@@ -15,7 +15,7 @@ def crear_ranking_base(data):
     # Eliminar filas donde los equipos dice Libre
     data = data[~data["local"].str.contains("LIBRE", case=False, na=False)]
 
-    return pd.DataFrame({"Equipo": data["local"].unique(), "Puntos": 0})
+    return data, pd.DataFrame({"Equipo": data["local"].unique(), "Puntos": 0})
 
 def asignar_basis_points(row):
     try:
@@ -104,46 +104,105 @@ def peso_por_ronda(ronda, anio):
 
 def peso_por_nivel(nivel):
     nivel = str(nivel).upper()
-    if "INTERCONFERENCIA A" in nivel or nivel == "INTERCONFERENCIA":
+    if nivel in ["INTERCONFERENCIA A", "INTERCONFERENCIA"]:
         return 2
     if "INTERCONFERENCIA B" in nivel:
         return 1.5
     if nivel == "1":
-        return 1.25
+        return 1
     if nivel == "2":
-        return 1
+        return 0.85
     if nivel == "3":
-        return 1
+        return 0.75
     return 1
 
-data=leer_csv_con_encoding_detectado("Data/procesada/19-24.csv")    
+def get_team_positions(ranking_df):
+    # Returns a dict: team_name -> position (1-based)
+    return {row["Equipo"]: i+1 for i, row in ranking_df.iterrows()}
 
-#for year in sorted(data["anio"].unique()):
-#    data_year = data[data["anio"] == year].copy()
-#    for idx, row in data_year.iterrows():
-#        BP_LOCAL, BP_VISITA = asignar_basis_points(row)
-#        data_year.at[idx, "BP_LOCAL"] = BP_LOCAL
-#        data_year.at[idx, "BP_VISITA"] = BP_VISITA
-#    data_year.to_csv(f"Data/procesada/{str(year)}.csv", index=False)
+def calculate_orp_vectorized(df, prev_ranking):
+    team_pos = get_team_positions(prev_ranking)
+    n = len(prev_ranking)
+    avg = (n + 1) / 2 if n > 0 else 0
 
-# Filtrar las categorías MINI y PREMINI
+    def orp_local(row):
+        vis_pos = team_pos.get(row["visitante"], avg)
+        return 1.5 * (avg - vis_pos)
+    def orp_visit(row):
+        loc_pos = team_pos.get(row["local"], avg)
+        return 1.5 * (avg - loc_pos)
+
+    df["ORP_LOCAL"] = df.apply(orp_local, axis=1)
+    df["ORP_VISITA"] = df.apply(orp_visit, axis=1)
+    return df
+
+def process_year(data, prev_ranking, year):
+    df = data[data["anio"] == year].copy()
+    # BP assignment (vectorized)
+    bp = df.apply(asignar_basis_points, axis=1, result_type="expand")
+    df["BP_LOCAL"], df["BP_VISITA"] = bp[0], bp[1]
+    # ORP assignment (vectorized)
+    df = calculate_orp_vectorized(df, prev_ranking)
+    # Weights
+    df["peso_nivel"] = df["nivel"].apply(peso_por_nivel)
+    df["peso_anio"] = df["anio"].apply(peso_por_anio)
+    df["peso_ronda"] = df.apply(lambda row: peso_por_ronda(row["ronda"], row["anio"]), axis=1)
+    df["peso_fase"] = df.apply(lambda row: peso_por_fase(row["fase"], row["nivel"]), axis=1)
+    # Final points
+    df["LocalSuma"] = df["peso_fase"]*df["peso_ronda"]*df["peso_anio"]*df["peso_nivel"]*(df["BP_LOCAL"]+df["ORP_LOCAL"])
+    df["VisitaSuma"] = df["peso_fase"]*df["peso_ronda"]*df["peso_anio"]*df["peso_nivel"]*(df["BP_VISITA"]+df["ORP_VISITA"])
+    # Aggregate
+    local = df.groupby("local").agg({"LocalSuma": "sum"}).reset_index().rename(columns={"local": "Equipo", "LocalSuma": "Puntos"})
+    visitante = df.groupby("visitante").agg({"VisitaSuma": "sum"}).reset_index().rename(columns={"visitante": "Equipo", "VisitaSuma": "Puntos"})
+    ranking = pd.concat([local, visitante]).groupby("Equipo", as_index=False).agg({"Puntos": "sum"})
+    ranking = ranking.sort_values(by="Puntos", ascending=False).reset_index(drop=True)
+    return df, ranking
+
+def process_all_years(data, years, ranking_init=None):
+    rankings = {}
+    ranking_total = ranking_init.copy() if ranking_init is not None else None
+    for i, year in enumerate(years):
+        print(f"Procesando año {year}...")
+        if i == 0 or ranking_total is None:
+            # Primer año: sin ORP
+            df = data[data["anio"] == year].copy()
+            bp = df.apply(asignar_basis_points, axis=1, result_type="expand")
+            df["BP_LOCAL"], df["BP_VISITA"] = bp[0], bp[1]
+            df["ORP_LOCAL"] = 0
+            df["ORP_VISITA"] = 0
+        else:
+            df = data[data["anio"] == year].copy()
+            bp = df.apply(asignar_basis_points, axis=1, result_type="expand")
+            df["BP_LOCAL"], df["BP_VISITA"] = bp[0], bp[1]
+            df = calculate_orp_vectorized(df, ranking_total)
+        # Weights
+        df["peso_nivel"] = df["nivel"].apply(peso_por_nivel)
+        df["peso_anio"] = df["anio"].apply(peso_por_anio)
+        df["peso_ronda"] = df.apply(lambda row: peso_por_ronda(row["ronda"], row["anio"]), axis=1)
+        df["peso_fase"] = df.apply(lambda row: peso_por_fase(row["fase"], row["nivel"]), axis=1)
+        # Final points
+        df["LocalSuma"] = df["peso_fase"]*df["peso_ronda"]*df["peso_anio"]*df["peso_nivel"]*(df["BP_LOCAL"]+df["ORP_LOCAL"])
+        df["VisitaSuma"] = df["peso_fase"]*df["peso_ronda"]*df["peso_anio"]*df["peso_nivel"]*(df["BP_VISITA"]+df["ORP_VISITA"])
+        # Aggregate
+        local = df.groupby("local").agg({"LocalSuma": "sum"}).reset_index().rename(columns={"local": "Equipo", "LocalSuma": "Puntos"})
+        visitante = df.groupby("visitante").agg({"VisitaSuma": "sum"}).reset_index().rename(columns={"visitante": "Equipo", "VisitaSuma": "Puntos"})
+        ranking = pd.concat([local, visitante]).groupby("Equipo", as_index=False).agg({"Puntos": "sum"})
+        ranking = ranking.sort_values(by="Puntos", ascending=False).reset_index(drop=True)
+        rankings[year] = (df, ranking)
+        # Actualizar ranking_total sumando el ranking de este año
+        if ranking_total is None:
+            ranking_total = ranking.copy()
+        else:
+            ranking_total = pd.concat([ranking_total, ranking]).groupby("Equipo", as_index=False).agg({"Puntos": "sum"})
+            ranking_total = ranking_total.sort_values(by="Puntos", ascending=False).reset_index(drop=True)
+        # Guardar archivos
+        df.to_csv(f"Data/procesada/{year}.csv", index=False)
+        ranking.to_csv(f"Data/procesada/Ranking{year}.csv", index=False)
+        ranking_total.to_csv(f"Data/procesada/Ranking2019-{year}.csv", index=False)
+    return rankings, ranking_total
+
+data = leer_csv_con_encoding_detectado("Data/procesada/19-24.csv", ";")
+data, ranking_base = crear_ranking_base(data)
 data = data[~data["categoria"].str.upper().isin(["MINI", "PREMINI"])]
-
-data_2019 = data[data["anio"] == 2019].copy()
-for idx, row in data_2019.iterrows():
-    BP_LOCAL, BP_VISITA = asignar_basis_points(row)
-    data_2019.at[idx, "BP_LOCAL"] = BP_LOCAL
-    data_2019.at[idx, "BP_VISITA"] = BP_VISITA
-    data_2019["peso_nivel"] = data_2019["nivel"].apply(peso_por_nivel)
-    data_2019["peso_anio"] = data_2019["anio"].apply(peso_por_anio)
-    data_2019["peso_ronda"] = data_2019.apply(lambda row: peso_por_ronda(row["ronda"], row["anio"]), axis=1)
-    data_2019["peso_fase"] = data_2019["fase"].apply(peso_por_fase)
-
-data_2019 = data_2019[["local", "visitante", "BP_LOCAL", "BP_VISITA", "peso_anio", "peso_nivel", "peso_fase", "peso_ronda"]].copy()
-data_2019.to_csv("Data/procesada/2019.csv", index=False)
-#data_2019_local = data_2019.groupby("local").agg({"BP_LOCAL": "sum"}).reset_index()
-#data_2019_visitante = data_2019.groupby("visitante").agg({"BP_VISITA": "sum"}).reset_index()
-#data_2019_local.columns = ["Equipo", "Puntos"]
-#data_2019_visitante.columns = ["Equipo", "Puntos"]
-#ranking_2019 = pd.concat([data_2019_local, data_2019_visitante]).groupby("Equipo", as_index=False).agg({"Puntos": "sum"})
-#ranking_2019 = ranking_2019.sort_values(by="Puntos", ascending=False).reset_index(drop=True)
+years = [2019, 2022, 2023, 2024]
+process_all_years(data, years, ranking_init=ranking_base)
