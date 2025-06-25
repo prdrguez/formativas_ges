@@ -122,17 +122,76 @@ for cat in partidos['categoria'].unique():
         tabla = tabla.sort_values(['puntos', 'DP', 'PF'], ascending=[False, False, False])
         tablas_cat_zona[(cat, zona)] = tabla
 
-# --- TABLA GENERAL POR ZONA (todas las categorías) ---
+# --- TABLA GENERAL POR ZONA (todas las categorías, SOLO para tabla general) ---
 tabla_general_zona = {}
-partidos_general = partidos.apply(calcular_puntos_general, axis=1).fillna(0)
-partidos_general = pd.concat([partidos, partidos_general], axis=1)
+# Excluir JUVENILES y aplicar lógica especial para MINI y PREMINI
+partidos_general = partidos[~partidos['categoria'].str.upper().eq('JUVENILES')].copy()
+
+def calcular_puntos_general_v2(row):
+    cat = row['categoria'].upper()
+    if cat in CATS_2PTS:
+        if row['ptsL'] == 20 and row['ptsV'] == 0:
+            return pd.Series({row['local']: 2, row['visitante']: 0})
+        if row['ptsL'] == 0 and row['ptsV'] == 20:
+            return pd.Series({row['local']: 0, row['visitante']: 2})
+        if row['ptsL'] > row['ptsV']:
+            return pd.Series({row['local']: 2, row['visitante']: 1})
+        elif row['ptsL'] < row['ptsV']:
+            return pd.Series({row['local']: 1, row['visitante']: 2})
+        elif row['ptsL'] == 0 and row['ptsV'] == 0:
+            return pd.Series({row['local']: 0, row['visitante']: 0})
+        else:
+            return pd.Series({row['local']: 1, row['visitante']: 1})
+    elif cat in CATS_1PT_PRESENTACION:
+        # 1 punto solo si se presenta (tiene puntos > 0), 0 si no se presenta (0-20 o 0-0)
+        if row['ptsL'] == 20 and row['ptsV'] == 0:
+            return pd.Series({row['local']: 1, row['visitante']: 0})
+        if row['ptsL'] == 0 and row['ptsV'] == 20:
+            return pd.Series({row['local']: 0, row['visitante']: 1})
+        if row['ptsL'] == 0 and row['ptsV'] == 0:
+            return pd.Series({row['local']: 0, row['visitante']: 0})
+        # Ambos se presentaron
+        return pd.Series({row['local']: 1, row['visitante']: 1})
+    else:
+        return pd.Series({row['local']: 0, row['visitante']: 0})
+
+puntos_general = partidos_general.apply(calcular_puntos_general_v2, axis=1).fillna(0)
+partidos_general = pd.concat([partidos_general, puntos_general], axis=1)
+
+def calcular_estadisticas_general(df):
+    equipos = {}
+    for idx, row in df.iterrows():
+        for local_visit, rival_visit, pts_equipo, pts_rival in [
+            ('local', 'visitante', 'ptsL', 'ptsV'),
+            ('visitante', 'local', 'ptsV', 'ptsL')
+        ]:
+            equipo = row[local_visit]
+            cat = row['categoria'].upper()
+            if equipo not in equipos:
+                equipos[equipo] = {'EQUIPO': equipo, 'PJ': 0, 'PG': 0, 'PP': 0, 'NP': 0, 'PF': 0, 'PC': 0, 'puntos': 0}
+            equipos[equipo]['PJ'] += 1
+            equipos[equipo]['PF'] += row[pts_equipo]
+            equipos[equipo]['PC'] += row[pts_rival]
+            if cat in CATS_1PT_PRESENTACION:
+                # MINI y PREMINI: solo NP si no se presenta (0-20 o 0-0)
+                if (row[pts_equipo] == 0 and row[pts_rival] == 20) or (row[pts_equipo] == 0 and row[pts_rival] == 0):
+                    equipos[equipo]['NP'] += 1
+            else:
+                # PG, PP, NP normal
+                if row[pts_equipo] == 0 and row[pts_rival] == 20:
+                    equipos[equipo]['NP'] += 1
+                elif row[pts_equipo] > row[pts_rival]:
+                    equipos[equipo]['PG'] += 1
+                elif row[pts_equipo] < row[pts_rival]:
+                    equipos[equipo]['PP'] += 1
+            equipos[equipo]['puntos'] += row.get(equipo, 0)
+    df_est = pd.DataFrame(list(equipos.values()))
+    df_est['DP'] = df_est['PF'] - df_est['PC']
+    df_est = df_est.sort_values(['puntos', 'DP', 'PF'], ascending=[False, False, False])
+    return df_est.set_index('EQUIPO')
+
 for zona, df_z in partidos_general.groupby('zona'):
-    tabla = calcular_estadisticas(df_z)
-    tabla['puntos'] = 0
-    for idx, row in df_z.iterrows():
-        for equipo in [row['local'], row['visitante']]:
-            tabla.at[equipo, 'puntos'] += row.get(equipo, 0)
-    tabla = tabla.sort_values(['puntos', 'DP', 'PF'], ascending=[False, False, False])
+    tabla = calcular_estadisticas_general(df_z)
     tabla_general_zona[zona] = tabla
 
 # Guardar resultados con estructura de carpetas solicitada
