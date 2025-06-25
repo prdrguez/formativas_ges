@@ -34,12 +34,12 @@ torneos_a_scrapear = [
     #    "Anio": 2024,
     #    "torneo": "FORMATIVAS 2024",
     #},
-    #{
-    #    "id": 1623,
-    #    "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=1623",
-    #    "Anio": 2025,
-    #    "torneo": "FORMATIVAS 2025",
-    #},
+    {
+        "id": 1623,
+        "url": "https://competicionescabb.gesdeportiva.es/competicion.aspx?competencia=1623",
+        "Anio": 2025,
+        "torneo": "FORMATIVAS 2025",
+    },
 ]
 
 
