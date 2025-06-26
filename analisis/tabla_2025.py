@@ -80,7 +80,7 @@ def calcular_estadisticas(df):
             equipos[equipo]['PF'] += row[pts_equipo]
             equipos[equipo]['PC'] += row[pts_rival]
             # No presentado
-            if (row[pts_equipo] == 0 and row[pts_rival] == 20) or (row[pts_equipo] == 0 and row[pts_rival] == 0):
+            if (row[pts_equipo] == 0 and row[pts_rival] == 20):
                 equipos[equipo]['NP'] += 1
             # Ganado
             elif row[pts_equipo] > row[pts_rival]:
@@ -174,7 +174,7 @@ def calcular_estadisticas_general(df):
             equipos[equipo]['PC'] += row[pts_rival]
             if cat in CATS_1PT_PRESENTACION:
                 # MINI y PREMINI: solo NP si no se presenta (0-20 o 0-0)
-                if (row[pts_equipo] == 0 and row[pts_rival] == 20) or (row[pts_equipo] == 0 and row[pts_rival] == 0):
+                if (row[pts_equipo] == 0 and row[pts_rival] == 20):
                     equipos[equipo]['NP'] += 1
             else:
                 # PG, PP, NP normal
