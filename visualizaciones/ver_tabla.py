@@ -165,3 +165,66 @@ with colB:
         st.subheader(f"Tabla General de {categoria} - {zona}")
         tabla_cat_general = pd.read_csv(categoria_general_path, index_col=0)
         st.dataframe(tabla_cat_general)
+
+# Visualización: cantidad de partidos por categoría y región según diferencia de puntos
+st.header("Distribución de partidos por diferencia de puntos")
+
+# Selector de región (zona)
+region_sel = st.selectbox("Filtrar por región (zona)", zonas, key="region_dif")
+
+# Filtrar partidos por región seleccionada
+partidos_region = partidos[partidos['zona'].str.upper() == region_sel.strip().upper()]
+
+# Definir los bins de diferencia (más detallados)
+bins = [-float('inf'), 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, float('inf')]
+labels = [
+    'Menos de 5 pts',
+    '5-10 pts',
+    '10-20 pts',
+    '20-30 pts',
+    '30-40 pts',
+    '40-50 pts',
+    '50-60 pts',
+    '60-70 pts',
+    '70-80 pts',
+    '80-90 pts',
+    '90-100 pts',
+    'Más de 100 pts'
+]
+
+partidos_region = partidos_region.copy()
+partidos_region['diferencia'] = (partidos_region['ptsL'] - partidos_region['ptsV']).abs()
+partidos_region['rango_dif'] = pd.cut(partidos_region['diferencia'], bins=bins, labels=labels, right=False)
+
+# Agrupar por categoría y rango de diferencia
+conteo = partidos_region.groupby(['categoria', 'rango_dif']).size().unstack(fill_value=0)
+# Ordenar las columnas (rangos) de menor a mayor diferencia
+conteo = conteo[labels]
+st.dataframe(conteo)
+
+# Mostrar gráfico de barras apiladas ordenado de menor a mayor diferencia
+import plotly.express as px
+
+# Agregar columna con listado de partidos por categoría y rango de diferencia
+partidos_region['info_partido'] = partidos_region.apply(
+    lambda x: f"{x['local']} {x['ptsL']}-{x['ptsV']} {x['visitante']}", axis=1)
+
+# Agrupar para tooltip
+tooltip_df = partidos_region.groupby(['categoria', 'rango_dif'])['info_partido'].apply(lambda x: '<br>'.join(x)).reset_index()
+conteo_reset = conteo.reset_index().melt(id_vars='categoria', var_name='Diferencia', value_name='Cantidad')
+conteo_reset = conteo_reset.merge(tooltip_df, how='left', left_on=['categoria', 'Diferencia'], right_on=['categoria', 'rango_dif'])
+
+fig = px.bar(
+    conteo_reset,
+    x='categoria',
+    y='Cantidad',
+    color='Diferencia',
+    category_orders={'Diferencia': labels},
+    title='Distribución de partidos por diferencia de puntos',
+    text_auto=True,
+    custom_data=['info_partido']
+)
+fig.update_traces(
+    hovertemplate='<b>%{x}</b><br> Cantidad: %{y}<br>Partidos:<br>%{customdata[0]}'
+)
+st.plotly_chart(fig, use_container_width=True)
