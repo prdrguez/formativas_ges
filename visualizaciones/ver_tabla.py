@@ -200,7 +200,12 @@ partidos_region['rango_dif'] = pd.cut(partidos_region['diferencia'], bins=bins, 
 conteo = partidos_region.groupby(['categoria', 'rango_dif']).size().unstack(fill_value=0)
 # Ordenar las columnas (rangos) de menor a mayor diferencia
 conteo = conteo[labels]
+# Agregar fila de promedio de diferencia de puntos por partido por categoría
+promedios_categoria = partidos_region.groupby('categoria')['diferencia'].mean().reindex(conteo.index)
+promedios_categoria = promedios_categoria.round(2).rename('Promedio Dif. Pts')
+conteo['Promedio Dif. Pts'] = promedios_categoria
 st.dataframe(conteo)
+
 
 # Mostrar gráfico de barras apiladas ordenado de menor a mayor diferencia
 import plotly.express as px
@@ -228,3 +233,38 @@ fig.update_traces(
     hovertemplate='<b>%{x}</b><br> Cantidad: %{y}<br>Partidos:<br>%{customdata[0]}'
 )
 st.plotly_chart(fig, use_container_width=True)
+# --- Comparativa de zonas: totales de partidos por diferencia de puntos ---
+st.subheader("Comparativa de zonas: totales de partidos por diferencia de puntos")
+
+# Calcular totales por zona y rango de diferencia
+partidos_all = partidos.copy()
+partidos_all['diferencia'] = (partidos_all['ptsL'] - partidos_all['ptsV']).abs()
+partidos_all['rango_dif'] = pd.cut(partidos_all['diferencia'], bins=bins, labels=labels, right=False)
+
+conteo_zonas = partidos_all.groupby(['zona', 'rango_dif']).size().unstack(fill_value=0)
+conteo_zonas = conteo_zonas[labels]  # asegurar orden de columnas
+
+# Agregar fila de promedio de diferencia de puntos por partido por zona
+promedios_zona = partidos_all.groupby('zona')['diferencia'].mean().reindex(conteo_zonas.index)
+promedios_zona = promedios_zona.round(2).rename('Promedio Dif. Pts')
+conteo_zonas_con_prom = conteo_zonas.copy()
+conteo_zonas_con_prom['Promedio Dif. Pts'] = promedios_zona
+st.dataframe(conteo_zonas_con_prom)
+
+# Preparar datos para gráfico apilado
+conteo_zonas_reset = conteo_zonas.reset_index().melt(id_vars='zona', var_name='Diferencia', value_name='Cantidad')
+
+fig_zonas = px.bar(
+    conteo_zonas_reset,
+    x='zona',
+    y='Cantidad',
+    color='Diferencia',
+    category_orders={'Diferencia': labels, 'zona': sorted(conteo_zonas.index)},
+    title='Comparativa de zonas: partidos por diferencia de puntos',
+    text_auto=True
+)
+fig_zonas.update_traces(
+    hovertemplate='<b>%{x}</b><br>Diferencia: %{customdata[0]}<br>Cantidad: %{y}',
+    customdata=conteo_zonas_reset[['Diferencia']].values
+)
+st.plotly_chart(fig_zonas, use_container_width=True)
