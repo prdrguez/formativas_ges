@@ -200,11 +200,14 @@ partidos_region['rango_dif'] = pd.cut(partidos_region['diferencia'], bins=bins, 
 conteo = partidos_region.groupby(['categoria', 'rango_dif']).size().unstack(fill_value=0)
 # Ordenar las columnas (rangos) de menor a mayor diferencia
 conteo = conteo[labels]
-# Agregar fila de promedio de diferencia de puntos por partido por categoría
-promedios_categoria = partidos_region.groupby('categoria')['diferencia'].mean().reindex(conteo.index)
+# Calcular promedios excluyendo PREMINI
+categorias_prom = [cat for cat in conteo.index if cat.strip().upper() != 'PREMINI']
+promedios_categoria = partidos_region[~partidos_region['categoria'].str.strip().str.upper().eq('PREMINI')].groupby('categoria')['diferencia'].mean().reindex(categorias_prom)
 promedios_categoria = promedios_categoria.round(2).rename('Promedio Dif. Pts')
-conteo['Promedio Dif. Pts'] = promedios_categoria
-st.dataframe(conteo)
+conteo_prom = conteo.copy()
+conteo_prom['Promedio Dif. Pts'] = None
+conteo_prom.loc[categorias_prom, 'Promedio Dif. Pts'] = promedios_categoria
+st.dataframe(conteo_prom)
 
 
 # Mostrar gráfico de barras apiladas ordenado de menor a mayor diferencia
@@ -233,10 +236,8 @@ fig.update_traces(
     hovertemplate='<b>%{x}</b><br> Cantidad: %{y}<br>Partidos:<br>%{customdata[0]}'
 )
 st.plotly_chart(fig, use_container_width=True)
-# --- Comparativa de zonas: totales de partidos por diferencia de puntos ---
-st.subheader("Comparativa de zonas: totales de partidos por diferencia de puntos")
 
-# Calcular totales por zona y rango de diferencia
+# --- Tabla única con selector de cantidad/porcentaje y fila total global
 partidos_all = partidos.copy()
 partidos_all['diferencia'] = (partidos_all['ptsL'] - partidos_all['ptsV']).abs()
 partidos_all['rango_dif'] = pd.cut(partidos_all['diferencia'], bins=bins, labels=labels, right=False)
@@ -244,12 +245,28 @@ partidos_all['rango_dif'] = pd.cut(partidos_all['diferencia'], bins=bins, labels
 conteo_zonas = partidos_all.groupby(['zona', 'rango_dif']).size().unstack(fill_value=0)
 conteo_zonas = conteo_zonas[labels]  # asegurar orden de columnas
 
-# Agregar fila de promedio de diferencia de puntos por partido por zona
-promedios_zona = partidos_all.groupby('zona')['diferencia'].mean().reindex(conteo_zonas.index)
-promedios_zona = promedios_zona.round(2).rename('Promedio Dif. Pts')
-conteo_zonas_con_prom = conteo_zonas.copy()
-conteo_zonas_con_prom['Promedio Dif. Pts'] = promedios_zona
-st.dataframe(conteo_zonas_con_prom)
+# Selector para mostrar cantidad o porcentaje
+tipo_tabla = st.radio("Mostrar:", ["Cantidad", "%"], horizontal=True, key="tipo_tabla_zonas")
+
+if tipo_tabla == "%":
+    tabla = conteo_zonas.div(conteo_zonas.sum(axis=1), axis=0).multiply(100).round(1)
+    tabla_label = "Porcentaje de partidos por diferencia (%)"
+else:
+    tabla = conteo_zonas.copy()
+    tabla_label = "Cantidad de partidos por diferencia"
+
+# Fila total global (suma o porcentaje global)
+if tipo_tabla == "%":
+    total = partidos_all['rango_dif'].value_counts().reindex(labels, fill_value=0)
+    total_pct = (total / total.sum() * 100).round(1)
+    total_row = pd.DataFrame([total_pct], index=["% Total"])
+else:
+    total = partidos_all['rango_dif'].value_counts().reindex(labels, fill_value=0)
+    total_row = pd.DataFrame([total], index=["Total"])
+
+# Concatenar fila total
+tabla_final = pd.concat([tabla, total_row], axis=0)
+st.dataframe(tabla_final, use_container_width=True)
 
 # Preparar datos para gráfico apilado
 conteo_zonas_reset = conteo_zonas.reset_index().melt(id_vars='zona', var_name='Diferencia', value_name='Cantidad')
