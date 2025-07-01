@@ -3,6 +3,7 @@ import streamlit as st
 from pathlib import Path
 import os
 import re
+import plotly.express as px
 
 st.set_page_config(page_title="FORMATIVAS FEBAMBA 2025", layout="wide")
 
@@ -209,9 +210,7 @@ conteo_prom['Promedio Dif. Pts'] = None
 conteo_prom.loc[categorias_prom, 'Promedio Dif. Pts'] = promedios_categoria
 st.dataframe(conteo_prom)
 
-
-# Mostrar gráfico de barras apiladas ordenado de menor a mayor diferencia
-import plotly.express as px
+st.subheader("Compartiva por zonas")
 
 # Agregar columna con listado de partidos por categoría y rango de diferencia
 partidos_region['info_partido'] = partidos_region.apply(
