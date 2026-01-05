@@ -6,6 +6,14 @@ Torneo Formativas 2019.json
 Torneo Formativas 2020 -.json
 TORNEO FORMATIVAS 2022.json
 gesdeportiva.json
-resultado_final.json
 resultados.txt
 informe_categorias19222324.py
+tabla_posiciones.py
+scrap_combinaciones_febamba.py
+analizar_fases_grupos.py
+*.log
+errores_fase_grupo_v5.csv
+estructura_por_fase_y_grupo_sin_mosquitos.csv
+febamba_estructura_ges.csv
+
+/venv
